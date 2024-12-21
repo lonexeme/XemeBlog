@@ -3,62 +3,47 @@ name: Deploy Hexo to GitHub Pages
 on:
   push:
     branches:
-      - main  # 当推送到 main 分支时触发
+      - main # 或你使用的默认分支名称
 
 jobs:
-  build:
-    runs-on: ubuntu-24.04
+  deploy:
+    runs-on: ubuntu-22.04
 
     steps:
-      - name: Checkout repository
+      - name: Checkout blog source
         uses: actions/checkout@v2
         with:
-          submodules: false  # 禁用子模块检查
+          path: blog
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v2
+      - name: Set up Node.js
+        uses: actions/setup-node@v1
         with:
-          node-version: '22'
+          node-version: "22" # 设置 Node.js 版本
 
-      - name: Install Dependencies
+      - name: Cache dependencies
+        uses: actions/cache@v2
+        with:
+          path: node_modules
+          key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-node-
+
+      - name: Install dependencies
         run: npm install
+        working-directory: ./blog
 
-      - name: Install Hexo Git Deployer
-        run: |
-          npm install hexo-deployer-git --save
-          npm install hexo-cli -g
+      - name: Install Hexo CLI
+        run: npm install -g hexo-cli
+        working-directory: ./blog
 
-      - name: Clean and Generate Static Files for Theme A
-        run: |
-          hexo clean
-          hexo generate
-
-      - name: Generate Static Files for Theme B
-        run: |
-          cd hexoB
-          npm install
-          npm install hexo-deployer-git --save
-          npm install hexo-cli -g
-          hexo clean
-          hexo generate
-          cd ..
-
-      - name: Move Theme B Output to Gallery
-        run: |
-          mv hexoB/public public/gallery
-
-      - name: Configure Git
-        run: |
-          git config --global user.name 'github-actions[bot]'
-          git config --global user.email 'github-actions[bot]@users.noreply.github.com'
+      - name: Generate static pages
+        run: hexo generate
+        working-directory: ./blog
 
       - name: Deploy to GitHub Pages
-        env:
-          GH_TOKEN: ${{ secrets.GH_TOKEN }}
-        run: |
-          cd public/
-          git init
-          git add -A
-          git commit -m "Create by workflows"
-          git remote add origin https://${{ secrets.GH_TOKEN }}@github.com/lonexeme/XemeBlog.git
-          git push origin HEAD:gh-pages -f
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          personal_token: ${{ secrets.PERSONAL_TOKEN }}
+          publish_dir: ./blog/public
+          external_repository: lonexeme/XemeBlog # 更改为你的 GitHub Pages 仓库, username 是你的用户名
+          publish_branch: main # GitHub Pages 分支
